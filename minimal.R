@@ -10,10 +10,10 @@ x <- x[sel] %>% html_nodes("article")
 
 # URLs:
 urls <- x %>% map_chr(function(y) html_attr(html_nodes(y, "a")[2], "href"))
-sel_urls <- str_detect(urls, "/blaulicht/pm/")
-urls <- urls[sel_urls]
+sel <- str_detect(urls, "/blaulicht/pm/")
+urls <- urls[sel]
 
-x <- x[sel_urls]
+x <- x[sel]
 
 # Titles:
 titles <- x %>% map_chr(function(y) html_text(html_nodes(y, "a")[2]))
