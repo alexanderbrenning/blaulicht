@@ -1,46 +1,60 @@
 ### Function that scrapes relevant police reports:
 # x: a single URL
 # delay: Delay in seconds after each request
-scrape_police_reports_url <- function(x, town = "Jena", 
-                                  out_path = file.path("reports", town),
-                                  skip_existing = TRUE,
-                                  delay = 10, verbose = 0) {
-  URL <- x
+
+##
+scrape_police_reports_url <- 
+  function(
+    x = "https://www.presseportal.de/blaulicht/r/",  # single URL
+    town = "Jena", 
+    out_path = file.path( "reports", town),
+    skip_existing = TRUE,
+    delay = 10,                                      # Delay in seconds after each request
+    athverbose = 0) {
+    
+    URL <- x
   
-  if (!is.null(out_path)) {
-    cnt <- URL %>% str_extract("[0-9]*$")
-    if (cnt == "") cnt <- "0"
-    out_file <- paste0(out_path, "/", strftime(Sys.Date(), format = "%Y-%m-%d"),
-                       "-", cnt, ".rds")
-    if (skip_existing)
-      if (file.exists(out_file)) {
-        if (verbose >= 1)
-          cat("Read file ", out_file, "...\n", sep  = "")
-        d <- readRDS(out_file)
-        if (verbose >= 1)
-          cat("Found ", nrow(d), " police reports from ", town, ".\n", sep = "")
-        return(d)
-      }
-  }
+    ## path storing results
+    if (is.null( out_path)) {
+      cnt <- URL %>% str_extract("[0-9]*$")                           # multipage reports: number of articles
+      if (cnt == "") cnt <- "0"                                       # singlepage report
+      out_file <- paste0( out_path, "/",                              # reports/towns
+                          strftime(Sys.Date(), format = "%Y-%m-%d"),  # ../date
+                          "-", cnt,                                   #   -number of articles
+                          ".rds")                                     #   .rds
+      
+      ## file exists
+      if (skip_existing)
+        
+        if (file.exists( out_file)) {
+          if (verbose >= 1)
+            cat("Read file ", out_file, "...\n", sep  = "")
+          d <- readRDS( out_file)
+          if (verbose >= 1)
+            cat("Found ", nrow(d), " police reports from ", town, ".\n", sep = "")
+          return(d)
+        }
+    }
+    
+    ## file non-existing
+    if (verbose >= 1)
+      cat("Read URL ", URL, "...\n", sep  = "")
   
-  if (verbose >= 1)
-    cat("Read URL ", URL, "...\n", sep  = "")
+    # Read the Web page:
+    html <- URL %>% url() %>% rvest::read_html()
   
-  # Read the Web page:
-  html <- URL %>% url() %>% read_html()
-  
-  # Be gentle: wait a few seconds between requests
-  if (delay > 0) Sys.sleep(delay)
+    # Be gentle: wait a few seconds between requests
+    if (delay > 0) Sys.sleep(delay)
   
   # The relevant information is in the links and their attributes
   # --> extract this information:
-  x <- html %>% html_nodes("a")
-  sel <- x %>% html_attr("class") %>% is.na()
+  x <- html %>% rvest::html_elements( "a")
+  sel <- x %>% rvest::html_attr( "class") %>% is.na()
   x <- x[sel]
-  sel <- x %>% html_attr("href") %>% str_detect("/pm/")
+  sel <- x %>% rvest::html_attr( "href") %>% str_detect("/pm/")
   x <- x[sel]
-  sel <- !(x %>% html_node("i") %>% is.na()) | 
-    !(x %>% html_attr("title") %>% duplicated(fromLast = TRUE))
+  sel <- !(x %>% html_node( "i") %>% is.na()) | 
+    !(x %>% html_attr( "title") %>% duplicated( fromLast = TRUE))
   x <- x[sel]
   
   dt <- html %>% html_elements("h5.date") %>% html_text()
@@ -100,8 +114,8 @@ scrape_police_reports <- function(town, npages = 1, ...) {
     urls <- paste0("https://www.presseportal.de/blaulicht/r/", town, suffix)
   }
   # Do the scraping:
-  x <- urls %>% map(function(x) try(scrape_police_reports_url(x, town = town, ...)))
-  unsel <- x %>% map_lgl(inherits, "try-error")
+  x <- urls %>% map( function(x) try( scrape_police_reports_url( x, town = town, ...)))
+  unsel <- x %>% map_lgl( inherits, "try-error")
   x <- x[!unsel] %>% bind_rows()
   x
 }
